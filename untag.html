@@ -83,7 +83,14 @@
         <!-- Loading State -->
         <div id="loadingState" class="text-center py-20">
             <div class="w-12 h-12 border-4 border-brand-black border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-            <p class="text-gray-500 font-medium">Loading your tagged photos...</p>
+            <p id="loadingText" class="text-gray-500 font-medium mb-4">Loading your tagged photos...</p>
+            <!-- Progress bar (hidden initially, shown during image loading) -->
+            <div id="loadingProgress" class="hidden max-w-xs mx-auto">
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div id="progressBar" class="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-xs text-gray-400">0 / 0 photos</p>
+            </div>
         </div>
 
         <!-- Error State -->
@@ -328,10 +335,75 @@
             photosData = data;
             expirationTime = data.expiresAt ? new Date(data.expiresAt) : null;
 
+            // Preload all images before showing the main content
+            await preloadAllImages();
+
             populateFilterDropdown();
             renderPhotos();
             startExpirationTimer();
             showMainContent();
+        }
+
+        // Preload all images with progress tracking
+        async function preloadAllImages() {
+            const photos = photosData.photos.filter(p => p.thumbnail && p.thumbnail.startsWith('http'));
+            const total = photos.length;
+
+            if (total === 0) return;
+
+            // Show progress UI
+            document.getElementById('loadingText').textContent = 'Loading photo thumbnails...';
+            document.getElementById('loadingProgress').classList.remove('hidden');
+
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            // Track which images loaded successfully vs failed
+            const imageResults = new Map();
+
+            let loaded = 0;
+
+            const updateProgress = () => {
+                loaded++;
+                const percent = Math.round((loaded / total) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressText.textContent = `${loaded} / ${total} photos`;
+            };
+
+            // Load images sequentially with delays to avoid rate limiting
+            for (let i = 0; i < photos.length; i++) {
+                const photo = photos[i];
+                const url = photo.thumbnail;
+
+                // Wait between requests to avoid rate limiting (except for first)
+                if (i > 0) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+
+                // Try to load the image
+                const result = await new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve({ success: true, url });
+                    img.onerror = () => resolve({ success: false, url });
+                    setTimeout(() => resolve({ success: false, url, timeout: true }), 4000);
+                    img.src = url;
+                });
+
+                imageResults.set(url, result.success);
+                updateProgress();
+
+                console.log(`[Preload] Image ${i + 1}/${total}: ${result.success ? '✅' : '❌'}`);
+            }
+
+            // Store results so renderPhotos can use them
+            window.preloadedImageResults = imageResults;
+
+            // Update loading text
+            const successCount = [...imageResults.values()].filter(v => v).length;
+            document.getElementById('loadingText').textContent = `Loaded ${successCount} of ${total} thumbnails`;
+
+            // Brief pause before showing content
+            await new Promise(r => setTimeout(r, 500));
         }
 
         function showMainContent() {
@@ -382,22 +454,22 @@
                         </div>
                     `;
                 } else if (hasThumbnail) {
-                    // Try to show thumbnail with delayed loading to avoid rate limiting
-                    // Images load sequentially with delays to bypass Instagram's CORP rate limiting
-                    const escapedPlaceholder = placeholderHtml.replace(/'/g, "\\'").replace(/\n/g, '').replace(/\s+/g, ' ');
-                    const delay = index * 500; // 500ms delay between each image
-                    imageHtml = `
-                        <img
-                            data-src="${photo.thumbnail}"
-                            alt="${altText.replace(/"/g, '&quot;')}"
-                            class="aspect-square object-cover w-full lazy-thumb"
-                            style="background: linear-gradient(135deg, #8b5cf6, #ec4899, #f97316);"
-                            data-delay="${delay}"
-                            data-index="${index}"
-                            data-placeholder="${encodeURIComponent(escapedPlaceholder)}"
-                            onerror="this.onerror=null; this.parentElement.innerHTML=decodeURIComponent(this.dataset.placeholder);"
-                        >
-                    `;
+                    // Check if this image was successfully preloaded
+                    const wasPreloaded = window.preloadedImageResults && window.preloadedImageResults.get(photo.thumbnail);
+
+                    if (wasPreloaded) {
+                        // Image was successfully preloaded, show it directly
+                        imageHtml = `
+                            <img
+                                src="${photo.thumbnail}"
+                                alt="${altText.replace(/"/g, '&quot;')}"
+                                class="aspect-square object-cover w-full"
+                            >
+                        `;
+                    } else {
+                        // Image failed to preload, show placeholder
+                        imageHtml = placeholderHtml;
+                    }
                 } else {
                     imageHtml = placeholderHtml;
                 }
@@ -423,46 +495,6 @@
             });
 
             updateCounts();
-
-            // Start loading images with delays to avoid rate limiting
-            loadImagesWithDelay();
-        }
-
-        // Load images sequentially with delays to bypass Instagram's CORP rate limiting
-        async function loadImagesWithDelay() {
-            const lazyImages = document.querySelectorAll('.lazy-thumb[data-src]');
-            console.log(`[LazyLoad] Starting delayed load for ${lazyImages.length} images`);
-
-            for (let i = 0; i < lazyImages.length; i++) {
-                const img = lazyImages[i];
-                const src = img.dataset.src;
-
-                if (!src) continue;
-
-                // Wait before loading each image (500ms between each)
-                if (i > 0) {
-                    await new Promise(r => setTimeout(r, 500));
-                }
-
-                console.log(`[LazyLoad] Loading image ${i + 1}/${lazyImages.length}`);
-                img.src = src;
-
-                // Wait for this image to either load or fail before continuing
-                await new Promise(resolve => {
-                    img.onload = () => {
-                        console.log(`[LazyLoad] Image ${i + 1} loaded successfully`);
-                        resolve();
-                    };
-                    img.onerror = () => {
-                        console.log(`[LazyLoad] Image ${i + 1} failed, showing placeholder`);
-                        resolve();
-                    };
-                    // Timeout after 3 seconds
-                    setTimeout(resolve, 3000);
-                });
-            }
-
-            console.log('[LazyLoad] All images processed');
         }
 
         function getFilteredPhotos() {
