@@ -83,14 +83,7 @@
         <!-- Loading State -->
         <div id="loadingState" class="text-center py-20">
             <div class="w-12 h-12 border-4 border-brand-black border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-            <p id="loadingText" class="text-gray-500 font-medium mb-4">Loading your tagged photos...</p>
-            <!-- Progress bar (hidden initially, shown during image loading) -->
-            <div id="loadingProgress" class="hidden max-w-xs mx-auto">
-                <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
-                    <div id="progressBar" class="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-                <p id="progressText" class="text-xs text-gray-400">0 / 0 photos</p>
-            </div>
+            <p class="text-gray-500 font-medium">Loading your tagged photos...</p>
         </div>
 
         <!-- Error State -->
@@ -335,75 +328,10 @@
             photosData = data;
             expirationTime = data.expiresAt ? new Date(data.expiresAt) : null;
 
-            // Preload all images before showing the main content
-            await preloadAllImages();
-
             populateFilterDropdown();
             renderPhotos();
             startExpirationTimer();
             showMainContent();
-        }
-
-        // Preload all images with progress tracking
-        async function preloadAllImages() {
-            const photos = photosData.photos.filter(p => p.thumbnail && p.thumbnail.startsWith('http'));
-            const total = photos.length;
-
-            if (total === 0) return;
-
-            // Show progress UI
-            document.getElementById('loadingText').textContent = 'Loading photo thumbnails...';
-            document.getElementById('loadingProgress').classList.remove('hidden');
-
-            const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-
-            // Track which images loaded successfully vs failed
-            const imageResults = new Map();
-
-            let loaded = 0;
-
-            const updateProgress = () => {
-                loaded++;
-                const percent = Math.round((loaded / total) * 100);
-                progressBar.style.width = `${percent}%`;
-                progressText.textContent = `${loaded} / ${total} photos`;
-            };
-
-            // Load images sequentially with delays to avoid rate limiting
-            for (let i = 0; i < photos.length; i++) {
-                const photo = photos[i];
-                const url = photo.thumbnail;
-
-                // Wait between requests to avoid rate limiting (except for first)
-                if (i > 0) {
-                    await new Promise(r => setTimeout(r, 500));
-                }
-
-                // Try to load the image
-                const result = await new Promise(resolve => {
-                    const img = new Image();
-                    img.onload = () => resolve({ success: true, url });
-                    img.onerror = () => resolve({ success: false, url });
-                    setTimeout(() => resolve({ success: false, url, timeout: true }), 4000);
-                    img.src = url;
-                });
-
-                imageResults.set(url, result.success);
-                updateProgress();
-
-                console.log(`[Preload] Image ${i + 1}/${total}: ${result.success ? '✅' : '❌'}`);
-            }
-
-            // Store results so renderPhotos can use them
-            window.preloadedImageResults = imageResults;
-
-            // Update loading text
-            const successCount = [...imageResults.values()].filter(v => v).length;
-            document.getElementById('loadingText').textContent = `Loaded ${successCount} of ${total} thumbnails`;
-
-            // Brief pause before showing content
-            await new Promise(r => setTimeout(r, 500));
         }
 
         function showMainContent() {
@@ -430,22 +358,13 @@
                 const posterName = photo.poster || 'Unknown';
                 const altText = photo.altText || '';
                 const truncatedAlt = altText.length > 50 ? altText.substring(0, 47) + '...' : altText;
-                const hasThumbnail = photo.thumbnail && photo.thumbnail.startsWith('http');
+                const thumbnail = photo.thumbnail || '';
 
                 const card = document.createElement('div');
                 card.className = `photo-card bg-white rounded-xl border border-brand-border overflow-hidden ${isCompleted ? 'completed' : ''}`;
                 card.dataset.originalIndex = originalIndex;
 
-                // Build the image/placeholder HTML
-                // Thumbnails work if viewing on same browser (cached), fallback to placeholder otherwise
-                const placeholderHtml = `
-                    <div class="photo-placeholder aspect-square bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex flex-col items-center justify-center p-3 text-center">
-                        <span class="text-white/90 text-xs font-medium mb-1">Photo by</span>
-                        <span class="text-white font-bold text-sm mb-2 truncate w-full px-1">@${posterName}</span>
-                        <span class="text-white/70 text-xs">Tap to open in Instagram</span>
-                    </div>
-                `;
-
+                // Build the image HTML with fallback to placeholder
                 let imageHtml;
                 if (isCompleted) {
                     imageHtml = `
@@ -453,25 +372,28 @@
                             <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                         </div>
                     `;
-                } else if (hasThumbnail) {
-                    // Check if this image was successfully preloaded
-                    const wasPreloaded = window.preloadedImageResults && window.preloadedImageResults.get(photo.thumbnail);
-
-                    if (wasPreloaded) {
-                        // Image was successfully preloaded, show it directly
-                        imageHtml = `
+                } else if (thumbnail) {
+                    // Use actual thumbnail with fallback placeholder on error
+                    imageHtml = `
+                        <div class="photo-wrapper aspect-square relative overflow-hidden bg-gray-100">
                             <img
-                                src="${photo.thumbnail}"
+                                src="${thumbnail}"
                                 alt="${altText.replace(/"/g, '&quot;')}"
-                                class="aspect-square object-cover w-full"
-                            >
-                        `;
-                    } else {
-                        // Image failed to preload, show placeholder
-                        imageHtml = placeholderHtml;
-                    }
+                                class="w-full h-full object-cover"
+                                loading="lazy"
+                                referrerpolicy="no-referrer"
+                                onerror="this.parentElement.innerHTML='<div class=\\'photo-placeholder aspect-square bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex flex-col items-center justify-center p-3 text-center\\'><span class=\\'text-white/90 text-xs font-medium mb-1\\'>Photo by</span><span class=\\'text-white font-bold text-sm mb-2 truncate w-full px-1\\'>@${posterName}</span><span class=\\'text-white/70 text-xs\\'>Tap to open</span></div>'"
+                            />
+                        </div>
+                    `;
                 } else {
-                    imageHtml = placeholderHtml;
+                    imageHtml = `
+                        <div class="photo-placeholder aspect-square bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex flex-col items-center justify-center p-3 text-center">
+                            <span class="text-white/90 text-xs font-medium mb-1">Photo by</span>
+                            <span class="text-white font-bold text-sm mb-2 truncate w-full px-1">@${posterName}</span>
+                            <span class="text-white/70 text-xs">Tap to open in Instagram</span>
+                        </div>
+                    `;
                 }
 
                 card.innerHTML = `
