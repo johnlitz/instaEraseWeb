@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Untag Photos - InstaErase</title>
+    <meta name="description" content="View and manage your tagged photos to untag from Instagram.">
+    <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            black: '#0a0a0a',
+                            offblack: '#111111',
+                            red: '#EB0029',
+                            white: '#ffffff',
+                            gray: '#f4f4f5',
+                            border: '#e4e4e7'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Inter"', '"Segoe UI"', 'Roboto', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; letter-spacing: -0.02em; }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .photo-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .photo-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.15);
+        }
+        .photo-card.completed {
+            opacity: 0.5;
+        }
+        .photo-card.completed .photo-placeholder {
+            background: #22c55e !important;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .loading-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        .confirm-overlay {
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-brand-gray text-brand-black min-h-screen">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass-nav border-b border-brand-border h-16">
+        <div class="max-w-5xl mx-auto px-6 h-full flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-2">
+                <div class="w-5 h-5 bg-brand-black text-white rounded flex items-center justify-center font-bold text-xs">I</div>
+                <span class="font-bold text-lg tracking-tight">InstaErase</span>
+            </a>
+            <div class="text-sm font-medium text-gray-500">
+                <span id="expirationTimer" class="text-brand-red font-semibold"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-24 pb-20 px-4 max-w-4xl mx-auto">
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-20">
+            <div class="w-12 h-12 border-4 border-brand-black border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <p class="text-gray-500 font-medium">Loading your tagged photos...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden text-center py-20">
+            <div class="w-16 h-16 bg-red-100 text-brand-red rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Link Expired or Invalid</h2>
+            <p class="text-gray-500 max-w-md mx-auto mb-6">This link has expired, been marked as completed, or is invalid. Please generate a new QR code from the InstaErase extension.</p>
+            <a href="index.html" class="inline-flex items-center gap-2 text-brand-red font-semibold hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to InstaErase
+            </a>
+        </div>
+
+        <!-- Main Content State -->
+        <div id="mainContent" class="hidden">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold tracking-tight mb-2">Your Tagged Photos</h1>
+                <p class="text-gray-500">Tap each photo to open in Instagram and remove the tag</p>
+            </div>
+
+            <!-- Privacy Notice -->
+            <div class="bg-white border border-brand-border rounded-xl p-4 mb-6">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="text-sm">
+                        <h3 class="font-semibold text-brand-black mb-1">Privacy Notice</h3>
+                        <ul class="text-gray-500 space-y-1">
+                            <li>• Data is stored temporarily on JSONBin.io (a third-party service)</li>
+                            <li>• Data is automatically deleted after the expiration time you selected</li>
+                            <li>• Instagram post IDs are visible in this page's data</li>
+                            <li>• Once marked as completed, data is immediately and permanently deleted</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="bg-brand-black text-white rounded-xl p-6 mb-6">
+                <h3 class="font-bold mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                    How to Remove Tags on Instagram Mobile
+                </h3>
+                <ol class="text-gray-300 text-sm space-y-2">
+                    <li><span class="text-white font-semibold">1.</span> Tap a photo below to open it in Instagram</li>
+                    <li><span class="text-white font-semibold">2.</span> Tap the <strong class="text-white">three dots (...)</strong> in the top right corner</li>
+                    <li><span class="text-white font-semibold">3.</span> Select <strong class="text-white">"Tag Options"</strong></li>
+                    <li><span class="text-white font-semibold">4.</span> Tap <strong class="text-white">"Remove Me from Post"</strong></li>
+                    <li><span class="text-white font-semibold">5.</span> Come back here and mark the photo as done</li>
+                </ol>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex items-center justify-between bg-white border border-brand-border rounded-xl p-4 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="text-center">
+                        <div id="totalCount" class="text-2xl font-bold text-brand-black">0</div>
+                        <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
+                    </div>
+                    <div class="w-px h-10 bg-brand-border"></div>
+                    <div class="text-center">
+                        <div id="completedCount" class="text-2xl font-bold text-green-600">0</div>
+                        <div class="text-xs text-gray-500 uppercase tracking-wide">Done</div>
+                    </div>
+                    <div class="w-px h-10 bg-brand-border"></div>
+                    <div class="text-center">
+                        <div id="remainingCount" class="text-2xl font-bold text-brand-red">0</div>
+                        <div class="text-xs text-gray-500 uppercase tracking-wide">Remaining</div>
+                    </div>
+                </div>
+                <button id="markAllCompleteBtn" class="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
+                    Mark All Complete
+                </button>
+            </div>
+
+            <!-- Photo Grid -->
+            <div id="photoGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Photos will be inserted here -->
+            </div>
+
+            <!-- Mark All Complete Button (Bottom) -->
+            <div class="mt-8 text-center">
+                <button id="markAllCompleteBtnBottom" class="px-8 py-3 bg-brand-red text-white font-bold rounded-xl hover:opacity-90 transition-opacity">
+                    Mark All Complete & Delete Data
+                </button>
+                <p class="text-xs text-gray-400 mt-2">This will permanently delete all stored data</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/50 confirm-overlay z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-red-100 text-brand-red rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold mb-2" id="confirmTitle">Are you sure?</h3>
+                <p class="text-gray-500 text-sm mb-6" id="confirmMessage">This action cannot be undone.</p>
+                <div class="flex gap-3">
+                    <button id="confirmCancel" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">
+                        Cancel
+                    </button>
+                    <button id="confirmAction" class="flex-1 px-4 py-3 bg-brand-red text-white font-semibold rounded-xl hover:opacity-90 transition-opacity">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Confirmation Modal (Double Confirm) -->
+    <div id="secondConfirmModal" class="fixed inset-0 bg-black/50 confirm-overlay z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold mb-2">Final Confirmation</h3>
+                <p class="text-gray-500 text-sm mb-6">Press confirm again to permanently delete all data. This cannot be undone.</p>
+                <div class="flex gap-3">
+                    <button id="secondConfirmCancel" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">
+                        Cancel
+                    </button>
+                    <button id="secondConfirmAction" class="flex-1 px-4 py-3 bg-brand-red text-white font-semibold rounded-xl hover:opacity-90 transition-opacity">
+                        Yes, Delete Forever
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="py-8 text-center border-t border-brand-border bg-white">
+        <div class="flex justify-center items-center gap-2 mb-4">
+            <div class="w-4 h-4 bg-brand-black rounded-sm"></div>
+            <span class="font-bold text-brand-black tracking-tight">InstaErase</span>
+        </div>
+        <p class="text-xs text-gray-400">Not affiliated with Instagram or Meta Platforms, Inc.</p>
+    </footer>
+
+    <script>
+        // JSONBin.io Configuration
+        const JSONBIN_API_KEY = '$2a$10$uX3vlmZ0wbxjhAC9kzMRXuCl2c2eoBH7i4fHi4djL2eSlWBAiyj5G';
+        const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3';
+
+        // State
+        let binId = null;
+        let photosData = null;
+        let expirationTime = null;
+        let timerInterval = null;
+
+        // DOM Elements
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const mainContent = document.getElementById('mainContent');
+        const photoGrid = document.getElementById('photoGrid');
+        const totalCount = document.getElementById('totalCount');
+        const completedCount = document.getElementById('completedCount');
+        const remainingCount = document.getElementById('remainingCount');
+        const expirationTimer = document.getElementById('expirationTimer');
+        const confirmModal = document.getElementById('confirmModal');
+        const secondConfirmModal = document.getElementById('secondConfirmModal');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+
+        async function init() {
+            // Get bin ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            binId = urlParams.get('id');
+
+            if (!binId) {
+                showError();
+                return;
+            }
+
+            try {
+                await loadData();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showError();
+            }
+        }
+
+        async function loadData() {
+            const response = await fetch(`${JSONBIN_BASE_URL}/b/${binId}/latest`, {
+                headers: {
+                    'X-Access-Key': JSONBIN_API_KEY
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load data');
+            }
+
+            const result = await response.json();
+            const data = result.record;
+
+            // Check if data exists and is not expired
+            if (!data || !data.photos || data.photos.length === 0) {
+                showError();
+                return;
+            }
+
+            // Check expiration
+            if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
+                // Data expired - delete it
+                await deleteBin();
+                showError();
+                return;
+            }
+
+            photosData = data;
+            expirationTime = data.expiresAt ? new Date(data.expiresAt) : null;
+
+            renderPhotos();
+            startExpirationTimer();
+            showMainContent();
+        }
+
+        function showMainContent() {
+            loadingState.classList.add('hidden');
+            errorState.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+        }
+
+        function showError() {
+            loadingState.classList.add('hidden');
+            mainContent.classList.add('hidden');
+            errorState.classList.remove('hidden');
+        }
+
+        function renderPhotos() {
+            photoGrid.innerHTML = '';
+
+            photosData.photos.forEach((photo, index) => {
+                const isCompleted = photo.completed || false;
+                const card = document.createElement('div');
+                card.className = `photo-card bg-white rounded-xl border border-brand-border overflow-hidden ${isCompleted ? 'completed' : ''}`;
+                card.innerHTML = `
+                    <a href="${photo.url}" target="_blank" rel="noopener noreferrer" class="block">
+                        <div class="photo-placeholder aspect-square ${isCompleted ? 'bg-green-500' : 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400'} flex items-center justify-center">
+                            ${isCompleted ?
+                                '<svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' :
+                                '<svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>'
+                            }
+                        </div>
+                    </a>
+                    <div class="p-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500 truncate flex-1">Photo ${index + 1}</span>
+                            <button
+                                onclick="togglePhotoComplete(${index}, event)"
+                                class="text-xs font-semibold ${isCompleted ? 'text-gray-400' : 'text-green-600 hover:text-green-700'}"
+                            >
+                                ${isCompleted ? 'Done' : 'Mark Done'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                photoGrid.appendChild(card);
+            });
+
+            updateCounts();
+        }
+
+        function updateCounts() {
+            const total = photosData.photos.length;
+            const completed = photosData.photos.filter(p => p.completed).length;
+            const remaining = total - completed;
+
+            totalCount.textContent = total;
+            completedCount.textContent = completed;
+            remainingCount.textContent = remaining;
+        }
+
+        async function togglePhotoComplete(index, event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            photosData.photos[index].completed = !photosData.photos[index].completed;
+
+            // Update UI immediately
+            renderPhotos();
+
+            // Save to JSONBin
+            try {
+                await updateBin();
+            } catch (error) {
+                console.error('Error updating data:', error);
+                // Revert on error
+                photosData.photos[index].completed = !photosData.photos[index].completed;
+                renderPhotos();
+            }
+        }
+
+        async function updateBin() {
+            const response = await fetch(`${JSONBIN_BASE_URL}/b/${binId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Access-Key': JSONBIN_API_KEY
+                },
+                body: JSON.stringify(photosData)
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update data');
+            }
+        }
+
+        async function deleteBin() {
+            try {
+                await fetch(`${JSONBIN_BASE_URL}/b/${binId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Access-Key': JSONBIN_API_KEY
+                    }
+                });
+            } catch (error) {
+                console.error('Error deleting bin:', error);
+            }
+        }
+
+        function startExpirationTimer() {
+            if (!expirationTime) return;
+
+            updateTimerDisplay();
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function updateTimerDisplay() {
+            if (!expirationTime) return;
+
+            const now = new Date();
+            const diff = expirationTime - now;
+
+            if (diff <= 0) {
+                expirationTimer.textContent = 'Expired';
+                clearInterval(timerInterval);
+                // Reload to show error state
+                setTimeout(() => location.reload(), 1000);
+                return;
+            }
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            if (hours > 0) {
+                expirationTimer.textContent = `Expires in ${hours}h ${minutes}m`;
+            } else if (minutes > 0) {
+                expirationTimer.textContent = `Expires in ${minutes}m ${seconds}s`;
+            } else {
+                expirationTimer.textContent = `Expires in ${seconds}s`;
+            }
+        }
+
+        // Confirmation Modal Logic
+        let pendingAction = null;
+
+        function showConfirmModal(title, message, action) {
+            pendingAction = action;
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            confirmModal.classList.remove('hidden');
+            confirmModal.classList.add('flex');
+        }
+
+        function hideConfirmModal() {
+            confirmModal.classList.add('hidden');
+            confirmModal.classList.remove('flex');
+            pendingAction = null;
+        }
+
+        function showSecondConfirmModal() {
+            hideConfirmModal();
+            secondConfirmModal.classList.remove('hidden');
+            secondConfirmModal.classList.add('flex');
+        }
+
+        function hideSecondConfirmModal() {
+            secondConfirmModal.classList.add('hidden');
+            secondConfirmModal.classList.remove('flex');
+        }
+
+        document.getElementById('confirmCancel').addEventListener('click', hideConfirmModal);
+        document.getElementById('secondConfirmCancel').addEventListener('click', hideSecondConfirmModal);
+
+        document.getElementById('confirmAction').addEventListener('click', () => {
+            // Show second confirmation
+            showSecondConfirmModal();
+        });
+
+        document.getElementById('secondConfirmAction').addEventListener('click', async () => {
+            hideSecondConfirmModal();
+
+            if (pendingAction === 'markAllComplete') {
+                // Delete the bin and show success
+                try {
+                    await deleteBin();
+                    showError(); // Show the "expired" message as confirmation
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+
+            pendingAction = null;
+        });
+
+        // Mark All Complete buttons
+        document.getElementById('markAllCompleteBtn').addEventListener('click', () => {
+            showConfirmModal(
+                'Mark All Complete?',
+                'This will permanently delete all stored photo data. Make sure you have untagged yourself from all photos first.',
+                'markAllComplete'
+            );
+        });
+
+        document.getElementById('markAllCompleteBtnBottom').addEventListener('click', () => {
+            showConfirmModal(
+                'Mark All Complete?',
+                'This will permanently delete all stored photo data. Make sure you have untagged yourself from all photos first.',
+                'markAllComplete'
+            );
+        });
+
+        // Close modals when clicking outside
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) hideConfirmModal();
+        });
+        secondConfirmModal.addEventListener('click', (e) => {
+            if (e.target === secondConfirmModal) hideSecondConfirmModal();
+        });
+    </script>
+
+</body>
+</html>
