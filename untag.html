@@ -171,6 +171,17 @@
                 </button>
             </div>
 
+            <!-- Filter Dropdown -->
+            <div id="filterSection" class="mb-6 hidden">
+                <div class="flex items-center gap-3">
+                    <label for="posterFilter" class="text-sm font-medium text-gray-600">Filter by poster:</label>
+                    <select id="posterFilter" class="flex-1 max-w-xs px-4 py-2 bg-white border border-brand-border rounded-lg text-sm font-medium text-brand-black focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent cursor-pointer">
+                        <option value="all">All Photos</option>
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
+            </div>
+
             <!-- Photo Grid -->
             <div id="photoGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 <!-- Photos will be inserted here -->
@@ -251,6 +262,7 @@
         let photosData = null;
         let expirationTime = null;
         let timerInterval = null;
+        let currentFilter = 'all';
 
         // DOM Elements
         const loadingState = document.getElementById('loadingState');
@@ -316,6 +328,7 @@
             photosData = data;
             expirationTime = data.expiresAt ? new Date(data.expiresAt) : null;
 
+            populateFilterDropdown();
             renderPhotos();
             startExpirationTimer();
             showMainContent();
@@ -336,35 +349,121 @@
         function renderPhotos() {
             photoGrid.innerHTML = '';
 
-            photosData.photos.forEach((photo, index) => {
+            // Get filtered photos based on current filter
+            const filteredPhotos = getFilteredPhotos();
+
+            filteredPhotos.forEach((photo, index) => {
                 const isCompleted = photo.completed || false;
+                const originalIndex = photosData.photos.indexOf(photo);
+                const posterName = photo.poster || 'Unknown';
+                const altText = photo.altText || '';
+                const truncatedAlt = altText.length > 50 ? altText.substring(0, 47) + '...' : altText;
+                const hasThumbnail = photo.thumbnail && photo.thumbnail.startsWith('http');
+
                 const card = document.createElement('div');
                 card.className = `photo-card bg-white rounded-xl border border-brand-border overflow-hidden ${isCompleted ? 'completed' : ''}`;
+                card.dataset.originalIndex = originalIndex;
+
+                // Build the image/placeholder HTML
+                let imageHtml;
+                if (isCompleted) {
+                    imageHtml = `
+                        <div class="photo-placeholder aspect-square bg-green-500 flex items-center justify-center">
+                            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                    `;
+                } else if (hasThumbnail) {
+                    imageHtml = `
+                        <div class="photo-container aspect-square relative overflow-hidden bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400">
+                            <img
+                                src="${photo.thumbnail}"
+                                alt="${altText.replace(/"/g, '&quot;')}"
+                                class="w-full h-full object-cover absolute inset-0"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                crossorigin="anonymous"
+                            />
+                            <div class="fallback-placeholder w-full h-full items-center justify-center hidden">
+                                <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    imageHtml = `
+                        <div class="photo-placeholder aspect-square bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                    `;
+                }
+
                 card.innerHTML = `
                     <a href="${photo.url}" target="_blank" rel="noopener noreferrer" class="block">
-                        <div class="photo-placeholder aspect-square ${isCompleted ? 'bg-green-500' : 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400'} flex items-center justify-center">
-                            ${isCompleted ?
-                                '<svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' :
-                                '<svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>'
-                            }
-                        </div>
+                        ${imageHtml}
                     </a>
                     <div class="p-3">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-500 truncate flex-1">Photo ${index + 1}</span>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-medium text-brand-black truncate flex-1">@${posterName}</span>
                             <button
-                                onclick="togglePhotoComplete(${index}, event)"
+                                onclick="togglePhotoComplete(${originalIndex}, event)"
                                 class="text-xs font-semibold ${isCompleted ? 'text-gray-400' : 'text-green-600 hover:text-green-700'}"
                             >
                                 ${isCompleted ? 'Done' : 'Mark Done'}
                             </button>
                         </div>
+                        ${truncatedAlt ? `<p class="text-xs text-gray-400 truncate" title="${altText.replace(/"/g, '&quot;')}">${truncatedAlt}</p>` : ''}
                     </div>
                 `;
                 photoGrid.appendChild(card);
             });
 
             updateCounts();
+        }
+
+        function getFilteredPhotos() {
+            if (!currentFilter || currentFilter === 'all') {
+                return photosData.photos;
+            }
+            return photosData.photos.filter(photo => photo.poster === currentFilter);
+        }
+
+        function populateFilterDropdown() {
+            const filterSection = document.getElementById('filterSection');
+            const posterFilter = document.getElementById('posterFilter');
+
+            // Count photos by poster
+            const posterCounts = {};
+            photosData.photos.forEach(photo => {
+                const poster = photo.poster || 'Unknown';
+                posterCounts[poster] = (posterCounts[poster] || 0) + 1;
+            });
+
+            // Get unique posters sorted by count (descending)
+            const posters = Object.keys(posterCounts).sort((a, b) => posterCounts[b] - posterCounts[a]);
+
+            // Only show filter if there are multiple posters
+            if (posters.length <= 1) {
+                filterSection.classList.add('hidden');
+                return;
+            }
+
+            // Clear existing options except "All"
+            posterFilter.innerHTML = `<option value="all">All Photos (${photosData.photos.length})</option>`;
+
+            // Add options for each poster
+            posters.forEach(poster => {
+                const option = document.createElement('option');
+                option.value = poster;
+                option.textContent = `@${poster} (${posterCounts[poster]})`;
+                posterFilter.appendChild(option);
+            });
+
+            // Show the filter section
+            filterSection.classList.remove('hidden');
+
+            // Add event listener for filter changes
+            posterFilter.addEventListener('change', (e) => {
+                currentFilter = e.target.value;
+                renderPhotos();
+            });
         }
 
         function updateCounts() {
@@ -473,7 +572,7 @@
         function hideConfirmModal() {
             confirmModal.classList.add('hidden');
             confirmModal.classList.remove('flex');
-            pendingAction = null;
+            // Don't reset pendingAction here - it's still needed for second confirmation
         }
 
         function showSecondConfirmModal() {
@@ -487,8 +586,14 @@
             secondConfirmModal.classList.remove('flex');
         }
 
-        document.getElementById('confirmCancel').addEventListener('click', hideConfirmModal);
-        document.getElementById('secondConfirmCancel').addEventListener('click', hideSecondConfirmModal);
+        document.getElementById('confirmCancel').addEventListener('click', () => {
+            hideConfirmModal();
+            pendingAction = null;  // Reset when user explicitly cancels
+        });
+        document.getElementById('secondConfirmCancel').addEventListener('click', () => {
+            hideSecondConfirmModal();
+            pendingAction = null;  // Reset when user explicitly cancels
+        });
 
         document.getElementById('confirmAction').addEventListener('click', () => {
             // Show second confirmation
