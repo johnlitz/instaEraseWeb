@@ -358,32 +358,17 @@
                 const posterName = photo.poster || 'Unknown';
                 const altText = photo.altText || '';
                 const truncatedAlt = altText.length > 50 ? altText.substring(0, 47) + '...' : altText;
-                const thumbnail = photo.thumbnail || '';
 
                 const card = document.createElement('div');
                 card.className = `photo-card bg-white rounded-xl border border-brand-border overflow-hidden ${isCompleted ? 'completed' : ''}`;
                 card.dataset.originalIndex = originalIndex;
 
-                // Build the image HTML with fallback to placeholder
+                // Build the placeholder HTML
                 let imageHtml;
                 if (isCompleted) {
                     imageHtml = `
                         <div class="photo-placeholder aspect-square bg-green-500 flex items-center justify-center">
                             <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        </div>
-                    `;
-                } else if (thumbnail) {
-                    // Use actual thumbnail with fallback placeholder on error
-                    imageHtml = `
-                        <div class="photo-wrapper aspect-square relative overflow-hidden bg-gray-100">
-                            <img
-                                src="${thumbnail}"
-                                alt="${altText.replace(/"/g, '&quot;')}"
-                                class="w-full h-full object-cover"
-                                loading="lazy"
-                                referrerpolicy="no-referrer"
-                                onerror="this.parentElement.innerHTML='<div class=\\'photo-placeholder aspect-square bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex flex-col items-center justify-center p-3 text-center\\'><span class=\\'text-white/90 text-xs font-medium mb-1\\'>Photo by</span><span class=\\'text-white font-bold text-sm mb-2 truncate w-full px-1\\'>@${posterName}</span><span class=\\'text-white/70 text-xs\\'>Tap to open</span></div>'"
-                            />
                         </div>
                     `;
                 } else {
