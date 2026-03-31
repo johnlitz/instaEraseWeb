@@ -1,255 +1,465 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Untag Photos - InstaErase</title>
     <meta name="description" content="View and manage your tagged photos to untag from Instagram.">
     <meta name="robots" content="noindex, nofollow">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            black: '#0a0a0a',
-                            offblack: '#111111',
-                            red: '#EB0029',
-                            white: '#ffffff',
-                            gray: '#f4f4f5',
-                            border: '#e4e4e7'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Inter"', '"Segoe UI"', 'Roboto', 'sans-serif'],
-                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-                    }
-                }
-            }
-        }
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { -webkit-font-smoothing: antialiased; letter-spacing: -0.02em; }
-        .glass-nav {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #ffffff;
+            --text-primary: #0a0a0a;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --accent: #EB0029;
+            --border: #e5e7eb;
+            --success: #16a34a;
         }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            font-size: 15px;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        a { color: inherit; text-decoration: none; }
+
+        /* Nav */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            height: 48px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: -0.03em;
+        }
+        .nav-timer {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+        .nav-timer.urgent { color: var(--accent); font-weight: 600; }
+
+        /* Layout */
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Main */
+        .main {
+            padding-top: 80px;
+            padding-bottom: 80px;
+        }
+
+        /* Page header */
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 4px;
+        }
+        .page-sub {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 120px 0;
+            color: var(--text-secondary);
+        }
+
+        /* Error */
+        .error {
+            text-align: center;
+            padding: 120px 0;
+        }
+        .error-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .error-desc {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .error-link {
+            color: var(--text-secondary);
+            font-weight: 600;
+            transition: color 0.15s;
+        }
+        .error-link:hover { color: var(--text-primary); }
+
+        /* Privacy notice */
+        .notice {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Instructions */
+        .instructions {
+            margin-bottom: 24px;
+        }
+        .instructions-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .instructions ol {
+            list-style: none;
+            counter-reset: inst;
+        }
+        .instructions li {
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding: 2px 0;
+        }
+        .instructions li::before {
+            counter-increment: inst;
+            content: counter(inst) ". ";
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Stats */
+        .stats {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+        .stats-total { }
+        .stats-done { color: var(--success); font-weight: 600; }
+        .stats-remaining { color: var(--accent); font-weight: 600; }
+
+        /* Filter */
+        .filter {
+            margin-bottom: 24px;
+        }
+        .filter label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-right: 8px;
+        }
+        .filter select {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg);
+            color: var(--text-primary);
+            outline: none;
+        }
+        .filter select:focus {
+            border-color: var(--text-tertiary);
+        }
+
+        /* Photo grid */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        @media (min-width: 640px) {
+            .photo-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 768px) {
+            .photo-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        /* Photo card */
         .photo-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
         }
-        .photo-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.15);
-        }
-        .photo-card.completed {
-            opacity: 0.5;
-        }
+        .photo-card.completed { opacity: 0.5; }
         .photo-card.completed .photo-placeholder {
-            background: #22c55e !important;
+            background: var(--success) !important;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .photo-placeholder {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            text-align: center;
+            background: linear-gradient(135deg, #9333ea, #ec4899, #f97316);
         }
-        .loading-pulse {
-            animation: pulse 1.5s ease-in-out infinite;
+        .photo-placeholder .poster-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 2px;
         }
-        .confirm-overlay {
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
+        .photo-placeholder .poster-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+        .photo-placeholder .poster-hint {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+        }
+        .photo-placeholder--done {
+            background: var(--success) !important;
+        }
+        .photo-placeholder--done svg {
+            width: 32px;
+            height: 32px;
+            stroke: #ffffff;
+            fill: none;
+        }
+        .photo-info {
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .photo-poster {
+            font-size: 13px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        .photo-alt {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 8px 8px;
+        }
+        .mark-done-btn {
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--success);
+            cursor: pointer;
+            padding: 0;
+            white-space: nowrap;
+        }
+        .mark-done-btn:hover { opacity: 0.7; }
+        .mark-done-btn.is-done {
+            color: var(--text-tertiary);
+        }
+
+        /* Complete action */
+        .complete-action {
+            margin-top: 32px;
+            text-align: center;
+        }
+        .complete-link {
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 15px;
+            background: none;
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .complete-link:hover { opacity: 0.7; }
+        .complete-note {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-backdrop.hidden { display: none; }
+        .modal {
+            background: var(--bg);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            padding: 24px;
+            text-align: center;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .modal-message {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .modal-btn {
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 8px 16px;
+        }
+        .modal-btn--cancel {
+            color: var(--text-tertiary);
+        }
+        .modal-btn--cancel:hover { color: var(--text-secondary); }
+        .modal-btn--confirm {
+            color: var(--accent);
+        }
+        .modal-btn--confirm:hover { opacity: 0.7; }
+
+        /* Footer */
+        .footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+        .footer-name {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .footer-disclaimer {
+            font-size: 12px;
+            color: var(--text-tertiary);
         }
     </style>
 </head>
-<body class="bg-brand-gray text-brand-black min-h-screen">
+<body>
 
-    <!-- Navigation -->
-    <nav class="fixed w-full z-50 glass-nav border-b border-brand-border h-16">
-        <div class="max-w-5xl mx-auto px-6 h-full flex items-center justify-between">
-            <a href="index.html" class="flex items-center gap-2">
-                <div class="w-5 h-5 bg-brand-black text-white rounded flex items-center justify-center font-bold text-xs">I</div>
-                <span class="font-bold text-lg tracking-tight">InstaErase</span>
-            </a>
-            <div class="text-sm font-medium text-gray-500">
-                <span id="expirationTimer" class="text-brand-red font-semibold"></span>
-            </div>
-        </div>
+    <nav class="nav">
+        <a href="index.html" class="nav-logo">InstaErase</a>
+        <span id="expirationTimer" class="nav-timer"></span>
     </nav>
 
-    <!-- Main Content -->
-    <main class="pt-24 pb-20 px-4 max-w-4xl mx-auto">
+    <main class="main">
+        <div class="container">
 
-        <!-- Loading State -->
-        <div id="loadingState" class="text-center py-20">
-            <div class="w-12 h-12 border-4 border-brand-black border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-            <p class="text-gray-500 font-medium">Loading your tagged photos...</p>
-        </div>
-
-        <!-- Error State -->
-        <div id="errorState" class="hidden text-center py-20">
-            <div class="w-16 h-16 bg-red-100 text-brand-red rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </div>
-            <h2 class="text-2xl font-bold mb-2">Link Expired or Invalid</h2>
-            <p class="text-gray-500 max-w-md mx-auto mb-6">This link has expired, been marked as completed, or is invalid. Please generate a new QR code from the InstaErase extension.</p>
-            <a href="index.html" class="inline-flex items-center gap-2 text-brand-red font-semibold hover:underline">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                </svg>
-                Back to InstaErase
-            </a>
-        </div>
-
-        <!-- Main Content State -->
-        <div id="mainContent" class="hidden">
-            <!-- Header -->
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold tracking-tight mb-2">Your Tagged Photos</h1>
-                <p class="text-gray-500">Tap each photo to open in Instagram and remove the tag</p>
+            <!-- Loading State -->
+            <div id="loadingState" class="loading">
+                Loading...
             </div>
 
-            <!-- Privacy Notice -->
-            <div class="bg-white border border-brand-border rounded-xl p-4 mb-6">
-                <div class="flex items-start gap-3">
-                    <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <div class="text-sm">
-                        <h3 class="font-semibold text-brand-black mb-1">Privacy Notice</h3>
-                        <ul class="text-gray-500 space-y-1">
-                            <li>• Data is stored temporarily on JSONBin.io (a third-party service)</li>
-                            <li>• Data is automatically deleted after the expiration time you selected</li>
-                            <li>• Instagram post IDs are visible in this page's data</li>
-                            <li>• Once marked as completed, data is immediately and permanently deleted</li>
-                        </ul>
-                    </div>
+            <!-- Error State -->
+            <div id="errorState" class="error hidden" style="display: none;">
+                <div class="error-title">This link has expired.</div>
+                <p class="error-desc">Generate a new QR from the extension.</p>
+                <a href="index.html" class="error-link">&larr; Back to InstaErase</a>
+            </div>
+
+            <!-- Main Content -->
+            <div id="mainContent" style="display: none;">
+
+                <h1 class="page-title">Tagged Photos</h1>
+                <p class="page-sub">Tap each photo to open in Instagram and remove the tag.</p>
+
+                <p class="notice">Data is stored temporarily on JSONBin.io and automatically deleted after your chosen expiration time. Once marked complete, data is permanently deleted.</p>
+
+                <div class="instructions">
+                    <div class="instructions-title">How to remove tags</div>
+                    <ol>
+                        <li>Tap a photo to open in Instagram</li>
+                        <li>Tap ··· &rarr; Tag Options &rarr; Remove Me from Post</li>
+                        <li>Come back and mark done</li>
+                    </ol>
                 </div>
-            </div>
 
-            <!-- Instructions -->
-            <div class="bg-brand-black text-white rounded-xl p-6 mb-6">
-                <h3 class="font-bold mb-3 flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                    </svg>
-                    How to Remove Tags on Instagram Mobile
-                </h3>
-                <ol class="text-gray-300 text-sm space-y-2">
-                    <li><span class="text-white font-semibold">1.</span> Tap a photo below to open it in Instagram</li>
-                    <li><span class="text-white font-semibold">2.</span> Tap the <strong class="text-white">three dots (...)</strong> in the top right corner</li>
-                    <li><span class="text-white font-semibold">3.</span> Select <strong class="text-white">"Tag Options"</strong></li>
-                    <li><span class="text-white font-semibold">4.</span> Tap <strong class="text-white">"Remove Me from Post"</strong></li>
-                    <li><span class="text-white font-semibold">5.</span> Come back here and mark the photo as done</li>
-                </ol>
-            </div>
-
-            <!-- Stats Bar -->
-            <div class="flex items-center justify-between bg-white border border-brand-border rounded-xl p-4 mb-6">
-                <div class="flex items-center gap-4">
-                    <div class="text-center">
-                        <div id="totalCount" class="text-2xl font-bold text-brand-black">0</div>
-                        <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
-                    </div>
-                    <div class="w-px h-10 bg-brand-border"></div>
-                    <div class="text-center">
-                        <div id="completedCount" class="text-2xl font-bold text-green-600">0</div>
-                        <div class="text-xs text-gray-500 uppercase tracking-wide">Done</div>
-                    </div>
-                    <div class="w-px h-10 bg-brand-border"></div>
-                    <div class="text-center">
-                        <div id="remainingCount" class="text-2xl font-bold text-brand-red">0</div>
-                        <div class="text-xs text-gray-500 uppercase tracking-wide">Remaining</div>
-                    </div>
+                <div class="stats">
+                    <span id="totalCount" class="stats-total">0</span> total · <span id="completedCount" class="stats-done">0</span> done · <span id="remainingCount" class="stats-remaining">0</span> remaining
+                    <button id="markAllCompleteBtn" class="complete-link" style="margin-left: 12px; font-size: 13px;">Mark all complete</button>
                 </div>
-                <button id="markAllCompleteBtn" class="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
-                    Mark All Complete
-                </button>
-            </div>
 
-            <!-- Filter Dropdown -->
-            <div id="filterSection" class="mb-6 hidden">
-                <div class="flex items-center gap-3">
-                    <label for="posterFilter" class="text-sm font-medium text-gray-600">Filter by poster:</label>
-                    <select id="posterFilter" class="flex-1 max-w-xs px-4 py-2 bg-white border border-brand-border rounded-lg text-sm font-medium text-brand-black focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent cursor-pointer">
+                <div id="filterSection" class="filter" style="display: none;">
+                    <label for="posterFilter">Filter by poster:</label>
+                    <select id="posterFilter">
                         <option value="all">All Photos</option>
-                        <!-- Options will be populated dynamically -->
                     </select>
                 </div>
+
+                <div id="photoGrid" class="photo-grid">
+                    <!-- Photos inserted by JS -->
+                </div>
+
+                <div class="complete-action">
+                    <button id="markAllCompleteBtnBottom" class="complete-link">Mark all complete and delete data &rarr;</button>
+                    <p class="complete-note">This permanently deletes all stored data.</p>
+                </div>
+
             </div>
 
-            <!-- Photo Grid -->
-            <div id="photoGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                <!-- Photos will be inserted here -->
-            </div>
-
-            <!-- Mark All Complete Button (Bottom) -->
-            <div class="mt-8 text-center">
-                <button id="markAllCompleteBtnBottom" class="px-8 py-3 bg-brand-red text-white font-bold rounded-xl hover:opacity-90 transition-opacity">
-                    Mark All Complete & Delete Data
-                </button>
-                <p class="text-xs text-gray-400 mt-2">This will permanently delete all stored data</p>
-            </div>
         </div>
     </main>
 
     <!-- Confirmation Modal -->
-    <div id="confirmModal" class="fixed inset-0 bg-black/50 confirm-overlay z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <div class="text-center">
-                <div class="w-16 h-16 bg-red-100 text-brand-red rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-xl font-bold mb-2" id="confirmTitle">Are you sure?</h3>
-                <p class="text-gray-500 text-sm mb-6" id="confirmMessage">This action cannot be undone.</p>
-                <div class="flex gap-3">
-                    <button id="confirmCancel" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">
-                        Cancel
-                    </button>
-                    <button id="confirmAction" class="flex-1 px-4 py-3 bg-brand-red text-white font-semibold rounded-xl hover:opacity-90 transition-opacity">
-                        Confirm
-                    </button>
-                </div>
+    <div id="confirmModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-title" id="confirmTitle">Are you sure?</div>
+            <p class="modal-message" id="confirmMessage">This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="confirmCancel" class="modal-btn modal-btn--cancel">Cancel</button>
+                <button id="confirmAction" class="modal-btn modal-btn--confirm">Confirm</button>
             </div>
         </div>
     </div>
 
-    <!-- Second Confirmation Modal (Double Confirm) -->
-    <div id="secondConfirmModal" class="fixed inset-0 bg-black/50 confirm-overlay z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <div class="text-center">
-                <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-xl font-bold mb-2">Final Confirmation</h3>
-                <p class="text-gray-500 text-sm mb-6">Press confirm again to permanently delete all data. This cannot be undone.</p>
-                <div class="flex gap-3">
-                    <button id="secondConfirmCancel" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">
-                        Cancel
-                    </button>
-                    <button id="secondConfirmAction" class="flex-1 px-4 py-3 bg-brand-red text-white font-semibold rounded-xl hover:opacity-90 transition-opacity">
-                        Yes, Delete Forever
-                    </button>
-                </div>
+    <!-- Second Confirmation Modal -->
+    <div id="secondConfirmModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-title">Final Confirmation</div>
+            <p class="modal-message">Press confirm again to permanently delete all data.</p>
+            <div class="modal-actions">
+                <button id="secondConfirmCancel" class="modal-btn modal-btn--cancel">Cancel</button>
+                <button id="secondConfirmAction" class="modal-btn modal-btn--confirm">Yes, delete forever</button>
             </div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="py-8 text-center border-t border-brand-border bg-white">
-        <div class="flex justify-center items-center gap-2 mb-4">
-            <div class="w-4 h-4 bg-brand-black rounded-sm"></div>
-            <span class="font-bold text-brand-black tracking-tight">InstaErase</span>
-        </div>
-        <p class="text-xs text-gray-400">Not affiliated with Instagram or Meta Platforms, Inc.</p>
+    <footer class="footer">
+        <div class="footer-name">InstaErase</div>
+        <p class="footer-disclaimer">Not affiliated with Instagram or Meta.</p>
     </footer>
 
     <script>
@@ -280,7 +490,6 @@
         document.addEventListener('DOMContentLoaded', init);
 
         async function init() {
-            // Get bin ID from URL
             const urlParams = new URLSearchParams(window.location.search);
             binId = urlParams.get('id');
 
@@ -311,15 +520,12 @@
             const result = await response.json();
             const data = result.record;
 
-            // Check if data exists and is not expired
             if (!data || !data.photos || data.photos.length === 0) {
                 showError();
                 return;
             }
 
-            // Check expiration
             if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
-                // Data expired - delete it
                 await deleteBin();
                 showError();
                 return;
@@ -335,21 +541,20 @@
         }
 
         function showMainContent() {
-            loadingState.classList.add('hidden');
-            errorState.classList.add('hidden');
-            mainContent.classList.remove('hidden');
+            loadingState.style.display = 'none';
+            errorState.style.display = 'none';
+            mainContent.style.display = 'block';
         }
 
         function showError() {
-            loadingState.classList.add('hidden');
-            mainContent.classList.add('hidden');
-            errorState.classList.remove('hidden');
+            loadingState.style.display = 'none';
+            mainContent.style.display = 'none';
+            errorState.style.display = 'block';
         }
 
         function renderPhotos() {
             photoGrid.innerHTML = '';
 
-            // Get filtered photos based on current filter
             const filteredPhotos = getFilteredPhotos();
 
             filteredPhotos.forEach((photo, index) => {
@@ -360,43 +565,40 @@
                 const truncatedAlt = altText.length > 50 ? altText.substring(0, 47) + '...' : altText;
 
                 const card = document.createElement('div');
-                card.className = `photo-card bg-white rounded-xl border border-brand-border overflow-hidden ${isCompleted ? 'completed' : ''}`;
+                card.className = `photo-card ${isCompleted ? 'completed' : ''}`;
                 card.dataset.originalIndex = originalIndex;
 
-                // Build the placeholder HTML
                 let imageHtml;
                 if (isCompleted) {
                     imageHtml = `
-                        <div class="photo-placeholder aspect-square bg-green-500 flex items-center justify-center">
-                            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <div class="photo-placeholder photo-placeholder--done">
+                            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg>
                         </div>
                     `;
                 } else {
                     imageHtml = `
-                        <div class="photo-placeholder aspect-square bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex flex-col items-center justify-center p-3 text-center">
-                            <span class="text-white/90 text-xs font-medium mb-1">Photo by</span>
-                            <span class="text-white font-bold text-sm mb-2 truncate w-full px-1">@${posterName}</span>
-                            <span class="text-white/70 text-xs">Tap to open in Instagram</span>
+                        <div class="photo-placeholder">
+                            <span class="poster-label">Photo by</span>
+                            <span class="poster-name">@${posterName}</span>
+                            <span class="poster-hint">Tap to open in Instagram</span>
                         </div>
                     `;
                 }
 
                 card.innerHTML = `
-                    <a href="${photo.url}" target="_blank" rel="noopener noreferrer" class="block">
+                    <a href="${photo.url}" target="_blank" rel="noopener noreferrer" style="display:block;">
                         ${imageHtml}
                     </a>
-                    <div class="p-3">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-medium text-brand-black truncate flex-1">@${posterName}</span>
-                            <button
-                                onclick="togglePhotoComplete(${originalIndex}, event)"
-                                class="text-xs font-semibold ${isCompleted ? 'text-gray-400' : 'text-green-600 hover:text-green-700'}"
-                            >
-                                ${isCompleted ? 'Done' : 'Mark Done'}
-                            </button>
-                        </div>
-                        ${truncatedAlt ? `<p class="text-xs text-gray-400 truncate" title="${altText.replace(/"/g, '&quot;')}">${truncatedAlt}</p>` : ''}
+                    <div class="photo-info">
+                        <span class="photo-poster">@${posterName}</span>
+                        <button
+                            onclick="togglePhotoComplete(${originalIndex}, event)"
+                            class="mark-done-btn ${isCompleted ? 'is-done' : ''}"
+                        >
+                            ${isCompleted ? 'Done' : 'Mark Done'}
+                        </button>
                     </div>
+                    ${truncatedAlt ? `<div class="photo-alt" title="${altText.replace(/"/g, '&quot;')}">${truncatedAlt}</div>` : ''}
                 `;
                 photoGrid.appendChild(card);
             });
@@ -415,26 +617,21 @@
             const filterSection = document.getElementById('filterSection');
             const posterFilter = document.getElementById('posterFilter');
 
-            // Count photos by poster
             const posterCounts = {};
             photosData.photos.forEach(photo => {
                 const poster = photo.poster || 'Unknown';
                 posterCounts[poster] = (posterCounts[poster] || 0) + 1;
             });
 
-            // Get unique posters sorted by count (descending)
             const posters = Object.keys(posterCounts).sort((a, b) => posterCounts[b] - posterCounts[a]);
 
-            // Only show filter if there are multiple posters
             if (posters.length <= 1) {
-                filterSection.classList.add('hidden');
+                filterSection.style.display = 'none';
                 return;
             }
 
-            // Clear existing options except "All"
             posterFilter.innerHTML = `<option value="all">All Photos (${photosData.photos.length})</option>`;
 
-            // Add options for each poster
             posters.forEach(poster => {
                 const option = document.createElement('option');
                 option.value = poster;
@@ -442,10 +639,8 @@
                 posterFilter.appendChild(option);
             });
 
-            // Show the filter section
-            filterSection.classList.remove('hidden');
+            filterSection.style.display = 'block';
 
-            // Add event listener for filter changes
             posterFilter.addEventListener('change', (e) => {
                 currentFilter = e.target.value;
                 renderPhotos();
@@ -468,15 +663,12 @@
 
             photosData.photos[index].completed = !photosData.photos[index].completed;
 
-            // Update UI immediately
             renderPhotos();
 
-            // Save to JSONBin
             try {
                 await updateBin();
             } catch (error) {
                 console.error('Error updating data:', error);
-                // Revert on error
                 photosData.photos[index].completed = !photosData.photos[index].completed;
                 renderPhotos();
             }
@@ -526,7 +718,6 @@
             if (diff <= 0) {
                 expirationTimer.textContent = 'Expired';
                 clearInterval(timerInterval);
-                // Reload to show error state
                 setTimeout(() => location.reload(), 1000);
                 return;
             }
@@ -534,6 +725,11 @@
             const hours = Math.floor(diff / (1000 * 60 * 60));
             const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            // Add urgent class when under 5 minutes
+            if (hours === 0 && minutes < 5) {
+                expirationTimer.classList.add('urgent');
+            }
 
             if (hours > 0) {
                 expirationTimer.textContent = `Expires in ${hours}h ${minutes}m`;
@@ -552,37 +748,31 @@
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmMessage').textContent = message;
             confirmModal.classList.remove('hidden');
-            confirmModal.classList.add('flex');
         }
 
         function hideConfirmModal() {
             confirmModal.classList.add('hidden');
-            confirmModal.classList.remove('flex');
-            // Don't reset pendingAction here - it's still needed for second confirmation
         }
 
         function showSecondConfirmModal() {
             hideConfirmModal();
             secondConfirmModal.classList.remove('hidden');
-            secondConfirmModal.classList.add('flex');
         }
 
         function hideSecondConfirmModal() {
             secondConfirmModal.classList.add('hidden');
-            secondConfirmModal.classList.remove('flex');
         }
 
         document.getElementById('confirmCancel').addEventListener('click', () => {
             hideConfirmModal();
-            pendingAction = null;  // Reset when user explicitly cancels
+            pendingAction = null;
         });
         document.getElementById('secondConfirmCancel').addEventListener('click', () => {
             hideSecondConfirmModal();
-            pendingAction = null;  // Reset when user explicitly cancels
+            pendingAction = null;
         });
 
         document.getElementById('confirmAction').addEventListener('click', () => {
-            // Show second confirmation
             showSecondConfirmModal();
         });
 
@@ -590,10 +780,9 @@
             hideSecondConfirmModal();
 
             if (pendingAction === 'markAllComplete') {
-                // Delete the bin and show success
                 try {
                     await deleteBin();
-                    showError(); // Show the "expired" message as confirmation
+                    showError();
                 } catch (error) {
                     console.error('Error:', error);
                 }
@@ -602,7 +791,6 @@
             pendingAction = null;
         });
 
-        // Mark All Complete buttons
         document.getElementById('markAllCompleteBtn').addEventListener('click', () => {
             showConfirmModal(
                 'Mark All Complete?',
@@ -619,7 +807,6 @@
             );
         });
 
-        // Close modals when clicking outside
         confirmModal.addEventListener('click', (e) => {
             if (e.target === confirmModal) hideConfirmModal();
         });
